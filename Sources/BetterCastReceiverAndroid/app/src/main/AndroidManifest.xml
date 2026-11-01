@@ -50,7 +50,7 @@
             android:launchMode="singleTask"
             android:supportsPictureInPicture="true"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize"
-            android:screenOrientation="portrait"
+            android:screenOrientation="sensorLandscape"
             android:theme="@style/Theme.BetterCastReceiver">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

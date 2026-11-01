@@ -17,6 +17,9 @@ env:
   VDD_VERSION: '25.7.23'  # Pinned VDD release tag
   VDD_REPO: 'VirtualDrivers/Virtual-Display-Driver'
 
+permissions:
+  contents: write  # 需要写权限，才能把中文版产物发布到 Release
+
 jobs:
   build-windows:
     # Was pinned to windows-2022 for reproducibility. That pin is what silently broke
@@ -351,3 +354,29 @@ jobs:
           name: BetterCast-Setup-Windows-x64-${{ steps.version.outputs.version }}
           path: BetterCast-Setup-*.exe
           retention-days: 30
+
+      - name: Zip portable build
+        shell: pwsh
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          Compress-Archive -Path "artifact/*" -DestinationPath "BetterCast-Windows-x64-zh-Hans-$version.zip" -Force
+          Write-Host "Zip size: $((Get-Item 'BetterCast-Windows-x64-zh-Hans-*.zip').Length) bytes"
+
+      # 仅在手动触发（workflow_dispatch）时发布，避免每次 push 都生成 Release
+      - name: Publish Chinese release
+        if: github.event_name == 'workflow_dispatch'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: zh-hans-v${{ steps.version.outputs.version }}
+          name: BetterCast 中文版 v${{ steps.version.outputs.version }}
+          body: |
+            BetterCast Windows 版简体中文构建（社区汉化，非官方发布）。
+
+            - `BetterCast-Windows-x64-zh-Hans-*.zip`：绿色版，解压即用
+            - `BetterCast-Setup-*.exe`：安装版
+
+            仅界面文案汉化，日志与错误信息保持英文，便于排查问题。
+          prerelease: true
+          files: |
+            BetterCast-Windows-x64-zh-Hans-*.zip
+            BetterCast-Setup-*.exe

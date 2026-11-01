@@ -129,6 +129,13 @@
     <string name="help_fork_about_desc">github.com/geekmakersun/BetterCast</string>
     <string name="help_fork_report">Chinese build feedback</string>
     <string name="help_fork_report_desc">Report issues on the Chinese build\'s GitHub.</string>
+
+    <string name="check_update">Check for updates</string>
+    <string name="check_update_desc">Current version v%1$s — tap to check</string>
+    <string name="check_update_checking">Checking…</string>
+    <string name="check_update_latest">You\'re on the latest version (v%1$s)</string>
+    <string name="check_update_found">New version v%1$s — tap to update</string>
+    <string name="check_update_failed">Check failed — tap to retry</string>
     <string name="version_format">VERSION %1$s (BUILD %2$d)</string>
 
     <!-- Status messages -->

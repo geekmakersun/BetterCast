@@ -30,7 +30,12 @@ object UpdateChecker {
     private val apkPattern =
         Regex("""BetterCast-Receiver-Android-zh-Hans-(\d+(?:\.\d+)*)\.apk""")
 
+    /** 最近一次检查失败的原因；为空表示没有失败（或还没查过）。 */
+    var lastError: String? = null
+        private set
+
     suspend fun check(currentVersion: String): UpdateInfo? = withContext(Dispatchers.IO) {
+        lastError = null
         runCatching {
             val body = httpGet("https://api.github.com/repos/$OWNER/$REPO/releases?per_page=20")
             val releases = JSONArray(body)
@@ -54,7 +59,10 @@ object UpdateChecker {
                 }
             }
             best
-        }.onFailure { Log.w(TAG, "check failed: ${it.message}") }.getOrNull()
+        }.onFailure {
+            lastError = it.message ?: it::class.java.simpleName
+            Log.w(TAG, "check failed: ${it.message}")
+        }.getOrNull()
     }
 
     /** 按段比较，1.10.0 > 1.9.0；缺少的段按 0 处理。 */

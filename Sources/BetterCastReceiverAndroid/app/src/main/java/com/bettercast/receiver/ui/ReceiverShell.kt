@@ -2,6 +2,11 @@ package com.bettercast.receiver.ui
 
 import android.content.Intent
 import android.net.Uri
+import com.bettercast.receiver.BuildConfig
+import com.bettercast.receiver.update.UpdateChecker
+import com.bettercast.receiver.update.UpdateInfo
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -30,6 +35,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AspectRatio
 import androidx.compose.material.icons.filled.Cable
 import androidx.compose.material.icons.filled.Code
+import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material.icons.filled.Contrast
 import androidx.compose.material.icons.filled.Devices
 import androidx.compose.material.icons.filled.ErrorOutline
@@ -322,6 +328,13 @@ private fun SettingsTab(viewModel: ReceiverViewModel, onShowSetup: () -> Unit) {
 
     var nameDraft by remember(deviceName) { mutableStateOf(deviceName) }
 
+    // 手动检查更新：启动时也会自动查一次，这里给一个随时可点的入口
+    val scope = rememberCoroutineScope()
+    var checking by remember { mutableStateOf(false) }
+    var updateFound by remember { mutableStateOf<UpdateInfo?>(null) }
+    var checkFailed by remember { mutableStateOf(false) }
+    var upToDate by remember { mutableStateOf(false) }
+
     fun open(url: String) {
         runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
     }
@@ -504,6 +517,37 @@ private fun SettingsTab(viewModel: ReceiverViewModel, onShowSetup: () -> Unit) {
 
         SettingsSection(stringResource(R.string.section_help), Icons.Outlined.HelpOutline) {
             DisclosureRow(
+                icon = Icons.Filled.SystemUpdate,
+                iconColor = BC.primaryDim,
+                title = stringResource(R.string.check_update),
+                subtitle = when {
+                    checking -> stringResource(R.string.check_update_checking)
+                    updateFound != null -> stringResource(R.string.check_update_found, updateFound!!.version)
+                    checkFailed -> stringResource(R.string.check_update_failed)
+                    upToDate -> stringResource(R.string.check_update_latest, BuildConfig.VERSION_NAME)
+                    else -> stringResource(R.string.check_update_desc, BuildConfig.VERSION_NAME)
+                },
+                onClick = {
+                    if (!checking && updateFound == null) {
+                        checking = true
+                        checkFailed = false
+                        upToDate = false
+                        scope.launch {
+                            val info = UpdateChecker.check(BuildConfig.VERSION_NAME)
+                            checking = false
+                            if (info != null) {
+                                updateFound = info
+                            } else if (UpdateChecker.lastError == null) {
+                                upToDate = true
+                            } else {
+                                checkFailed = true
+                            }
+                        }
+                    }
+                }
+            )
+            RowDivider()
+            DisclosureRow(
                 icon = Icons.Outlined.HelpOutline,
                 iconColor = BC.primaryDim,
                 title = stringResource(R.string.help_setup_guide),
@@ -543,6 +587,11 @@ private fun SettingsTab(viewModel: ReceiverViewModel, onShowSetup: () -> Unit) {
                 subtitle = stringResource(R.string.help_fork_report_desc),
                 onClick = { open("https://github.com/geekmakersun/BetterCast/issues") }
             )
+        }
+
+        // 手动检查到新版本后，复用同一个更新弹窗
+        updateFound?.let { info ->
+            UpdateDialog(info = info, onDismiss = { updateFound = null })
         }
 
         Spacer(Modifier.height(24.dp))

@@ -1245,6 +1245,19 @@ void MainWindow::onSendScreenClicked() {
         int adapterIdx = monData.value("adapter", 0).toInt();
         int outputIdx = monData.value("output", 0).toInt();
         QString displayName = monData.value("displayName").toString();
+        int monW = monData.value("width", 0).toInt();
+        int monH = monData.value("height", 0).toInt();
+
+        // 0x0 说明这块屏没被激活（常见于虚拟显示器没拿到分辨率）。
+        // 以前这里会继续发送，DXGI 随后悄悄抓主屏，看起来就是“只能复制屏幕”。
+        if (monW <= 0 || monH <= 0) {
+            m_senderStatusLabel->setText("该显示器分辨率 0x0（未启用扩展），无法单独抓取。请先创建虚拟显示器或以管理员身份运行。");
+            m_senderStatusLabel->setStyleSheet("font-size: 12px; color: #d32f2f;");
+            LogManager::instance().log(QString("Refusing to send: %1 reports %2x%3")
+                                           .arg(displayName).arg(monW).arg(monH));
+            return;
+        }
+
         m_sender->setMonitorIndex(adapterIdx, outputIdx);
         m_sender->setDisplayName(displayName);
         LogManager::instance().log(QString("Capturing monitor: %1 (adapter %2, output %3)")
@@ -1359,6 +1372,8 @@ void MainWindow::onRefreshMonitors() {
         data["output"] = mon.outputIndex;
         data["virtual"] = mon.isVirtual;
         data["displayName"] = mon.name;
+        data["width"] = mon.width;
+        data["height"] = mon.height;
         m_monitorCombo->addItem(label, data);
     }
 

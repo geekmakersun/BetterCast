@@ -62,6 +62,8 @@ private:
     bool activateVirtualDisplay();
     bool writeVddSettings(const QVector<VddResolution>& displays);
     QVector<VddResolution> readVddSettings() const;
+    /// 驱动实际读取 vdd_settings.xml 的目录（注册表 VDDPATH，缺省回退自带目录）
+    QString vddSettingsDir() const;
     bool notifyDriverRefresh();
     bool tryNamedPipe(const QString& command);
 

@@ -127,12 +127,66 @@ bool ScreenCaptureWin::initDuplication() {
     return true;
 }
 
+bool ScreenCaptureWin::resolveOutputByName() {
+    if (m_displayName.isEmpty()) return true;  // 没指定名字 → 沿用调用方给的索引
+
+    IDXGIFactory1* factory = nullptr;
+    if (FAILED(CreateDXGIFactory1(__uuidof(IDXGIFactory1), (void**)&factory))) {
+        qWarning() << "Sender: CreateDXGIFactory1 failed";
+        return false;
+    }
+
+    bool found = false;
+    IDXGIAdapter1* adapter = nullptr;
+    for (UINT adapterIdx = 0;
+         !found && factory->EnumAdapters1(adapterIdx, &adapter) != DXGI_ERROR_NOT_FOUND;
+         adapterIdx++) {
+        IDXGIOutput* output = nullptr;
+        for (UINT outputIdx = 0;
+             adapter->EnumOutputs(outputIdx, &output) != DXGI_ERROR_NOT_FOUND;
+             outputIdx++) {
+            DXGI_OUTPUT_DESC desc;
+            output->GetDesc(&desc);
+            QString name = QString::fromWCharArray(desc.DeviceName);
+            output->Release();
+            if (name.compare(m_displayName, Qt::CaseInsensitive) == 0) {
+                m_adapterIndex = static_cast<int>(adapterIdx);
+                m_outputIndex = static_cast<int>(outputIdx);
+                found = true;
+                break;
+            }
+        }
+        adapter->Release();
+    }
+    factory->Release();
+
+    if (!found) {
+        qWarning() << "Sender: display" << m_displayName << "not present in DXGI — using GDI";
+    }
+    return found;
+}
+
 bool ScreenCaptureWin::start() {
     if (m_running) return true;
 
     m_useGdiFallback = false;
+    m_forceGdi = false;
 
-    if (!initD3D()) {
+    // 指定了显示设备名时，先按名字解析 DXGI 的 adapter/output；
+    // 解析不到（虚拟显示器未激活）就直接走 GDI，绝不再默默抓主屏。
+    if (!m_displayName.isEmpty() && !resolveOutputByName()) {
+        m_forceGdi = true;
+    }
+
+    if (m_forceGdi) {
+        LogManager::instance().log(QString("Sender: Capturing %1 via GDI").arg(m_displayName));
+        if (!initGdiFallback()) {
+            emit error(QString("无法抓取显示器 %1（分辨率 0x0 或未启用扩展）。"
+                               "请先创建/启用虚拟显示器，必要时以管理员身份运行。")
+                           .arg(m_displayName));
+            return false;
+        }
+    } else if (!initD3D()) {
         LogManager::instance().log("Sender: D3D11 init failed, trying GDI fallback");
         if (!initGdiFallback()) {
             emit error("Failed to initialize screen capture (both DXGI and GDI failed)");
@@ -174,12 +228,10 @@ bool ScreenCaptureWin::initGdiFallback() {
     }
 
     if (!m_gdiDC) {
-        // Try with device name directly
-        m_gdiDC = GetDC(nullptr);  // Full virtual desktop
-    }
-
-    if (!m_gdiDC) {
-        LogManager::instance().log("Sender: GDI CreateDC failed");
+        // 指定了具体显示器却拿不到 DC —— 说明该屏未激活（0x0）。
+        // 这里不再退回整块虚拟桌面，否则就会悄悄变成“复制主屏”。
+        LogManager::instance().log(QString("Sender: GDI CreateDC failed for %1")
+                                       .arg(m_displayName.isEmpty() ? "primary" : m_displayName));
         return false;
     }
 

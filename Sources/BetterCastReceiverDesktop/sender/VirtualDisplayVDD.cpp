@@ -10,6 +10,8 @@
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QProcess>
+#include <QRegularExpression>
+#include <QSettings>
 #include <QThread>
 #include <QXmlStreamReader>
 #include <QXmlStreamWriter>
@@ -61,8 +63,21 @@ static const QStringList kSettingsFiles = {
     "options.xml",
 };
 
-// VDD named pipe (modern versions)
-static const char* kVddPipeName = "\\\\.\\pipe\\VDDPipe";
+// VDD named pipe. MikeTheTech 的 IDD 驱动实际用的是 MTTVirtualDisplayPipe，
+// 旧常量 VDDPipe 只在少数老版本里出现，这里两个都试。
+static const char* kVddPipeNames[] = {
+    "\\\\.\\pipe\\MTTVirtualDisplayPipe",
+    "\\\\.\\pipe\\VDDPipe",
+};
+
+static HANDLE openVddPipe() {
+    for (const char* name : kVddPipeNames) {
+        HANDLE h = CreateFileA(name, GENERIC_READ | GENERIC_WRITE, 0, nullptr,
+                               OPEN_EXISTING, 0, nullptr);
+        if (h != INVALID_HANDLE_VALUE) return h;
+    }
+    return INVALID_HANDLE_VALUE;
+}
 
 // VDD hardware IDs to look for
 static const QStringList kVddHardwareIds = {
@@ -277,8 +292,7 @@ bool VirtualDisplayVDD::isDriverLoaded() const {
     }
 
     // Also check via named pipe — if pipe exists, driver is running
-    HANDLE pipe = CreateFileA(kVddPipeName, GENERIC_READ | GENERIC_WRITE,
-                              0, nullptr, OPEN_EXISTING, 0, nullptr);
+    HANDLE pipe = openVddPipe();
     if (pipe != INVALID_HANDLE_VALUE) {
         CloseHandle(pipe);
         return true;
@@ -388,8 +402,7 @@ bool VirtualDisplayVDD::installDriver() {
 bool VirtualDisplayVDD::ensureVddControlRunning() {
 #ifdef _WIN32
     // Check if pipe already exists (VDD Control is running)
-    HANDLE pipe = CreateFileA(kVddPipeName, GENERIC_READ | GENERIC_WRITE,
-                              0, nullptr, OPEN_EXISTING, 0, nullptr);
+    HANDLE pipe = openVddPipe();
     if (pipe != INVALID_HANDLE_VALUE) {
         CloseHandle(pipe);
         VDD_LOG("VDD: VDD Control is already running (pipe available)");
@@ -412,8 +425,7 @@ bool VirtualDisplayVDD::ensureVddControlRunning() {
     // Wait for the pipe to become available (VDD Control needs startup time)
     for (int i = 0; i < 20; i++) {  // Up to 10 seconds
         QThread::msleep(500);
-        pipe = CreateFileA(kVddPipeName, GENERIC_READ | GENERIC_WRITE,
-                           0, nullptr, OPEN_EXISTING, 0, nullptr);
+        pipe = openVddPipe();
         if (pipe != INVALID_HANDLE_VALUE) {
             CloseHandle(pipe);
             VDD_LOG("VDD: VDD Control started, pipe available");
@@ -529,6 +541,25 @@ bool VirtualDisplayVDD::createVirtualDisplay(int width, int height, int refreshR
             QThread::msleep(1000);
             outputIdx = findVirtualDisplayOutput();
         }
+        // 驱动新建的虚拟屏默认是 800x600，这里把它切到用户选的分辨率
+        for (const auto& mon : enumerateMonitors()) {
+            if (mon.isVirtual && mon.width > 0 && (mon.width != width || mon.height != height)) {
+                VDD_LOG(QString("VDD: Setting %1 to %2x%3@%4").arg(mon.name).arg(width).arg(height).arg(refreshRate));
+                applyDisplayMode(mon.name, width, height, refreshRate);
+                QThread::msleep(500);
+                break;
+            }
+        }
+        bool usable = false;
+        for (const auto& mon : enumerateMonitors()) {
+            if (mon.isVirtual && mon.width > 0 && mon.height > 0) { usable = true; break; }
+        }
+        if (!usable) {
+            m_createdDisplayCount--;
+            VDD_LOG("VDD: Pipe accepted the request but the virtual display is still 0x0");
+            emit error("虚拟显示器没有生效（分辨率 0x0）。请以管理员身份运行 BetterCast 后重试。");
+            return false;
+        }
         emit virtualDisplayCreated(outputIdx);
         return true;
     }
@@ -561,9 +592,32 @@ bool VirtualDisplayVDD::createVirtualDisplay(int width, int height, int refreshR
         QThread::msleep(1000);
         outputIdx = findVirtualDisplayOutput();
     }
-    if (outputIdx < 0) {
-        VDD_LOG("VDD: Virtual display still not found — it may need manual 'Extend' in Display Settings");
+
+    // 关键校验：虚拟显示器必须真的拿到分辨率，否则抓屏会退回主屏（=复制屏幕）。
+    // 先尝试把默认 800x600 切到目标分辨率。
+    for (const auto& mon : enumerateMonitors()) {
+        if (mon.isVirtual && mon.width > 0 && (mon.width != width || mon.height != height)) {
+            VDD_LOG(QString("VDD: Setting %1 to %2x%3@%4").arg(mon.name).arg(width).arg(height).arg(refreshRate));
+            applyDisplayMode(mon.name, width, height, refreshRate);
+            QThread::msleep(500);
+            break;
+        }
     }
+
+    bool usable = false;
+    for (const auto& mon : enumerateMonitors()) {
+        if (mon.isVirtual && mon.width > 0 && mon.height > 0) { usable = true; break; }
+    }
+    if (!usable) {
+        m_createdDisplayCount--;
+        VDD_LOG("VDD: Virtual display still 0x0 after refresh — driver did not apply settings "
+                "(usually pnputil needs administrator rights)");
+        emit error(QString("虚拟显示器没有生效（分辨率 0x0）。"
+                           "请以管理员身份运行 BetterCast，或在 VirtualDisplayDriver 目录里"
+                           "以管理员身份运行 VDD Control.exe 后重试。"));
+        return false;
+    }
+
     emit virtualDisplayCreated(outputIdx);
     return true;
 }
@@ -764,13 +818,62 @@ int VirtualDisplayVDD::findVirtualDisplayOutput() const {
 
 // ─── VDD Settings File ────────────────────────────────────────────────────────
 
+// 直接给指定显示器换分辨率。驱动默认只给 800x600，但它的模式列表里其实
+// 包含 1920x1080 等常用分辨率，用 ChangeDisplaySettingsEx 改比改 XML 可靠
+// （XML 路径一旦格式不对，驱动会干脆不创建显示器）。
+#ifdef _WIN32
+static bool applyDisplayMode(const QString& devName, int width, int height, int hz) {
+    DEVMODEW dm = {};
+    dm.dmSize = sizeof(dm);
+    dm.dmPelsWidth = static_cast<DWORD>(width);
+    dm.dmPelsHeight = static_cast<DWORD>(height);
+    dm.dmDisplayFrequency = static_cast<DWORD>(hz);
+    dm.dmBitsPerPel = 32;
+    dm.dmFields = DM_PELSWIDTH | DM_PELSHEIGHT | DM_BITSPERPEL | DM_DISPLAYFREQUENCY;
+
+    LONG r = ChangeDisplaySettingsExW(reinterpret_cast<LPCWSTR>(devName.utf16()), &dm,
+                                      nullptr, CDS_UPDATEREGISTRY, nullptr);
+    if (r != DISP_CHANGE_SUCCESSFUL && hz > 0) {
+        // 该刷新率不支持时退一步，只改分辨率
+        dm.dmDisplayFrequency = 0;
+        dm.dmFields = DM_PELSWIDTH | DM_PELSHEIGHT | DM_BITSPERPEL;
+        r = ChangeDisplaySettingsExW(reinterpret_cast<LPCWSTR>(devName.utf16()), &dm,
+                                     nullptr, CDS_UPDATEREGISTRY, nullptr);
+    }
+    return r == DISP_CHANGE_SUCCESSFUL;
+}
+#endif
+
+// 驱动从注册表 VDDPATH 指向的目录里读 vdd_settings.xml（这是 MikeTheTech
+// 安装器写进去的位置）。只写程序自带目录的话，驱动永远读不到 —— 虚拟屏
+// 就一直停在默认 800x600 且不生效。这里优先用 VDDPATH。
+QString VirtualDisplayVDD::vddSettingsDir() const {
+#ifdef _WIN32
+    static const QString kClassRoot =
+        "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Control\\Class\\{4d36e968-e325-11ce-bfc1-08002be10318}";
+    QSettings classKey(kClassRoot, QSettings::NativeFormat);
+
+    for (const QString& sub : classKey.childGroups()) {
+        QSettings inst(kClassRoot + "\\" + sub, QSettings::NativeFormat);
+        QString desc = inst.value("DriverDesc").toString();
+        if (!desc.contains("Virtual Display", Qt::CaseInsensitive)) continue;
+        QString path = inst.value("VDDPATH").toString().trimmed();
+        if (!path.isEmpty() && QDir(path).exists()) {
+            return path;
+        }
+    }
+#endif
+    return m_vddPath;
+}
+
 QVector<VirtualDisplayVDD::VddResolution> VirtualDisplayVDD::readVddSettings() const {
     QVector<VddResolution> displays;
-    if (m_vddPath.isEmpty()) return displays;
+    QString dir = vddSettingsDir();
+    if (dir.isEmpty()) return displays;
 
     // Try each known settings file
     for (const auto& filename : kSettingsFiles) {
-        QString path = m_vddPath + "/" + filename;
+        QString path = dir + "/" + filename;
         QFile file(path);
         if (!file.exists() || !file.open(QIODevice::ReadOnly)) continue;
 
@@ -808,19 +911,20 @@ QVector<VirtualDisplayVDD::VddResolution> VirtualDisplayVDD::readVddSettings() c
 }
 
 bool VirtualDisplayVDD::writeVddSettings(const QVector<VddResolution>& displays) {
-    if (m_vddPath.isEmpty()) return false;
+    QString dir = vddSettingsDir();
+    if (dir.isEmpty()) return false;
 
     // Find existing settings file, or create the first known one
     QString settingsPath;
     for (const auto& filename : kSettingsFiles) {
-        QString path = m_vddPath + "/" + filename;
+        QString path = dir + "/" + filename;
         if (QFileInfo::exists(path)) {
             settingsPath = path;
             break;
         }
     }
     if (settingsPath.isEmpty()) {
-        settingsPath = m_vddPath + "/" + kSettingsFiles.first();
+        settingsPath = dir + "/" + kSettingsFiles.first();
     }
 
     QFile file(settingsPath);
@@ -854,14 +958,35 @@ bool VirtualDisplayVDD::writeVddSettings(const QVector<VddResolution>& displays)
 
 // ─── Driver Communication ──────────────────────────────────────────────────────
 
+#ifdef _WIN32
+// 列出描述为 "Virtual Display Driver" 的显示类设备实例 ID，
+// 例如 ROOT\DISPLAY\0000（不同安装方式下根枚举前缀会变，不能写死）。
+static QStringList enumerateVddDeviceInstances() {
+    QStringList ids;
+    QProcess proc;
+    proc.start("pnputil", {"/enum-devices", "/class", "Display"});
+    if (!proc.waitForFinished(15000)) return ids;
+
+    QString out = QString::fromLocal8Bit(proc.readAllStandardOutput());
+    bool isVddBlock = false;
+    for (const QString& rawLine : out.split(QRegularExpression("\r?\n"))) {
+        QString line = rawLine.trimmed();
+        if (line.isEmpty()) { isVddBlock = false; continue; }
+        if (line.contains("Virtual Display", Qt::CaseInsensitive)) isVddBlock = true;
+        if (!isVddBlock) continue;
+
+        // 英文系统是 "Instance ID:"，中文系统是 "实例 ID:"
+        QRegularExpressionMatch m =
+            QRegularExpression("(?:Instance ID|实例 ID)\\s*:\\s*(\\S+)").match(line);
+        if (m.hasMatch()) ids.append(m.captured(1));
+    }
+    return ids;
+}
+#endif
+
 bool VirtualDisplayVDD::tryNamedPipe(const QString& command) {
 #ifdef _WIN32
-    HANDLE pipe = CreateFileA(
-        kVddPipeName,
-        GENERIC_READ | GENERIC_WRITE,
-        0, nullptr,
-        OPEN_EXISTING,
-        0, nullptr);
+    HANDLE pipe = openVddPipe();
 
     if (pipe == INVALID_HANDLE_VALUE) {
         VDD_LOG("VDD: Named pipe not available (error " + QString::number(GetLastError()) + ")");
@@ -898,13 +1023,31 @@ bool VirtualDisplayVDD::notifyDriverRefresh() {
         return true;
     }
 
-    // Method 2: Try pnputil restart with various device IDs
-    static const char* deviceIds[] = {
+    // Method 2: restart the real device instance(s). Root-enumerated IDD
+    // devices show up as ROOT\DISPLAY\0000 etc., not ROOT\MttVDD\0000 —
+    // restarting a non-existent ID silently "succeeds" and never applies
+    // the settings, which is exactly what used to leave the virtual monitor
+    // at 0x0 and made captures fall back to the primary display.
+    QStringList instances = enumerateVddDeviceInstances();
+    for (const QString& devId : instances) {
+        QProcess proc;
+        proc.setProgram("pnputil");
+        proc.setArguments({"/restart-device", devId});
+        proc.start();
+        if (proc.waitForFinished(10000) && proc.exitCode() == 0) {
+            VDD_LOG(QString("VDD: Driver restarted via pnputil (%1)").arg(devId));
+            return true;
+        }
+        VDD_LOG(QString("VDD: pnputil restart failed for %1: %2")
+                    .arg(devId, proc.readAllStandardError().trimmed()));
+    }
+
+    static const char* fallbackIds[] = {
         "Root\\MttVDD\\0000",
         "Root\\VirtualDisplayDriver\\0000",
         "Root\\IddSampleDriver\\0000",
     };
-    for (const auto* devId : deviceIds) {
+    for (const auto* devId : fallbackIds) {
         QProcess proc;
         proc.setProgram("pnputil");
         proc.setArguments({"/restart-device", devId});

@@ -40,6 +40,9 @@ private:
     bool initD3D();
     bool initDuplication();
     bool initGdiFallback();
+    /// 按显示设备名在 DXGI 里定位 adapter/output。虚拟显示器常常
+    /// 不在 DXGI 列表里（未激活），此时返回 false，交给 GDI 按名字抓取。
+    bool resolveOutputByName();
     void captureFrame();
     void captureFrameGdi();
     void cleanup();
@@ -61,6 +64,7 @@ private:
     int m_adapterIndex = 0;
     int m_outputIndex = 0;
     QString m_displayName;
+    bool m_forceGdi = false;
     QSize m_resolution;
     std::atomic<bool> m_running{false};
 };

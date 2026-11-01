@@ -370,12 +370,13 @@ jobs:
           tag_name: zh-hans-v${{ steps.version.outputs.version }}
           name: BetterCast 中文版 v${{ steps.version.outputs.version }}
           body: |
-            BetterCast Windows 版简体中文构建（社区汉化，非官方发布）。
+            BetterCast 简体中文构建（社区汉化，非官方发布）。Windows 与 Android 共用同一版本号。
 
             - `BetterCast-Windows-x64-zh-Hans-*.zip`：绿色版，解压即用
             - `BetterCast-Setup-*.exe`：安装版
+            - `BetterCast-Receiver-Android-zh-Hans-*.apk`：Android 接收端（默认横屏，已移除打赏提示）
 
-            仅界面文案汉化，日志与错误信息保持英文，便于排查问题。
+            Windows 仅界面文案汉化，日志与错误信息保持英文，便于排查问题。
           prerelease: true
           files: |
             BetterCast-Windows-x64-zh-Hans-*.zip

@@ -15,7 +15,7 @@ android {
         minSdk = 26
         targetSdk = 34
         versionCode = 6
-        versionName = "1.5"
+        versionName = "1.5.0"
     }
 
     // Release signing. Credentials come from keystore.properties (gitignored) or,

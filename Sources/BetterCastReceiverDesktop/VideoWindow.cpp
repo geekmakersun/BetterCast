@@ -10,7 +10,7 @@ VideoWindow::VideoWindow(VideoRenderer* renderer, InputHandler* inputHandler, QW
     , m_renderer(renderer)
     , m_inputHandler(inputHandler)
 {
-    setWindowTitle("BetterCast — Receiving");
+    setWindowTitle("BetterCast — 接收中");
     setStyleSheet("background-color: black;");
     setMinimumSize(320, 180);
 
@@ -32,7 +32,7 @@ VideoWindow::VideoWindow(VideoRenderer* renderer, InputHandler* inputHandler, QW
     auto* tbLayout = new QHBoxLayout(m_toolbar);
     tbLayout->setContentsMargins(8, 2, 8, 2);
 
-    auto* fullscreenBtn = new QPushButton("[ ] Fullscreen");
+    auto* fullscreenBtn = new QPushButton("[ ] 全屏");
     connect(fullscreenBtn, &QPushButton::clicked, this, &VideoWindow::toggleFullscreen);
 
     tbLayout->addStretch();

@@ -184,6 +184,11 @@ endif()
 
 add_executable(BetterCastReceiver ${SOURCES} ${HEADERS} ${RESOURCES})
 
+# 源码与界面文案使用 UTF-8（含简体中文），MSVC 需要显式指定，否则会被当作 ANSI 读取
+if(MSVC)
+    target_compile_options(BetterCastReceiver PRIVATE /utf-8)
+endif()
+
 target_include_directories(BetterCastReceiver PRIVATE
     "${CMAKE_CURRENT_BINARY_DIR}/generated"
 )

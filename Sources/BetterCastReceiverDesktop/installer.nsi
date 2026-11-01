@@ -32,6 +32,8 @@
 !define PRODUCT_PUBLISHER  "BetterCast"
 !define PRODUCT_WEB_SITE   "https://bettercast.online"
 !define PRODUCT_HELP_LINK  "https://github.com/StephenLovino/BetterCast/issues"
+; 中文构建自己的仓库（原版信息保持不动）
+!define PRODUCT_WEB_SITE_ZH "https://github.com/geekmakersun/BetterCast"
 !define PRODUCT_EXE        "BetterCastReceiver.exe"
 
 !define PRODUCT_DIR_REGKEY    "Software\Microsoft\Windows\CurrentVersion\App Paths\${PRODUCT_EXE}"
@@ -81,8 +83,9 @@ VIAddVersionKey  "OriginalFilename" "BetterCast-Setup-${PRODUCT_VERSION}.exe"
 
 !define MUI_FINISHPAGE_RUN          "$INSTDIR\${PRODUCT_EXE}"
 !define MUI_FINISHPAGE_RUN_TEXT     "Launch ${PRODUCT_NAME}"
-!define MUI_FINISHPAGE_LINK         "Visit ${PRODUCT_WEB_SITE}"
-!define MUI_FINISHPAGE_LINK_LOCATION "${PRODUCT_WEB_SITE}"
+; 中文版项目主页，同时把原版地址保留在链接文字里
+!define MUI_FINISHPAGE_LINK         "中文版项目主页 GitHub（原版 ${PRODUCT_WEB_SITE}）"
+!define MUI_FINISHPAGE_LINK_LOCATION "${PRODUCT_WEB_SITE_ZH}"
 !insertmacro MUI_PAGE_FINISH
 
 !insertmacro MUI_UNPAGE_CONFIRM

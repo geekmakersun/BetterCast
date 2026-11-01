@@ -123,6 +123,12 @@
     <string name="help_about_desc">bettercast.online</string>
     <string name="help_report">Report an Issue</string>
     <string name="help_report_desc">Send feedback on GitHub.</string>
+
+    <!-- Chinese build: kept separate from the upstream links above -->
+    <string name="help_fork_about">About the Chinese build</string>
+    <string name="help_fork_about_desc">github.com/geekmakersun/BetterCast</string>
+    <string name="help_fork_report">Chinese build feedback</string>
+    <string name="help_fork_report_desc">Report issues on the Chinese build\'s GitHub.</string>
     <string name="version_format">VERSION %1$s (BUILD %2$d)</string>
 
     <!-- Status messages -->

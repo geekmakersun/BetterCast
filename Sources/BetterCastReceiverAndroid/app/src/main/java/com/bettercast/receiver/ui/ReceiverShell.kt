@@ -29,6 +29,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AspectRatio
 import androidx.compose.material.icons.filled.Cable
+import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Contrast
 import androidx.compose.material.icons.filled.Devices
 import androidx.compose.material.icons.filled.ErrorOutline
@@ -524,6 +525,23 @@ private fun SettingsTab(viewModel: ReceiverViewModel, onShowSetup: () -> Unit) {
                 title = stringResource(R.string.help_report),
                 subtitle = stringResource(R.string.help_report_desc),
                 onClick = { open("https://github.com/StephenLovino/BetterCast/issues") }
+            )
+            RowDivider()
+            // 中文版自己的入口：原版的两条保留在上面
+            DisclosureRow(
+                icon = Icons.Filled.Code,
+                iconColor = BC.primaryDim,
+                title = stringResource(R.string.help_fork_about),
+                subtitle = stringResource(R.string.help_fork_about_desc),
+                onClick = { open("https://github.com/geekmakersun/BetterCast") }
+            )
+            RowDivider()
+            DisclosureRow(
+                icon = Icons.Filled.ErrorOutline,
+                iconColor = BC.secondaryDim,
+                title = stringResource(R.string.help_fork_report),
+                subtitle = stringResource(R.string.help_fork_report_desc),
+                onClick = { open("https://github.com/geekmakersun/BetterCast/issues") }
             )
         }
 

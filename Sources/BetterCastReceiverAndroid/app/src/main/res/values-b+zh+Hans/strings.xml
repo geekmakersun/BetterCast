@@ -106,6 +106,12 @@
     <string name="help_about_desc">bettercast.online</string>
     <string name="help_report">反馈问题</string>
     <string name="help_report_desc">在 GitHub 上提交反馈。</string>
+
+    <!-- 中文版信息（原版链接保留在上面） -->
+    <string name="help_fork_about">关于中文版</string>
+    <string name="help_fork_about_desc">github.com/geekmakersun/BetterCast</string>
+    <string name="help_fork_report">中文版反馈</string>
+    <string name="help_fork_report_desc">在中文版仓库提交问题与建议。</string>
     <string name="version_format">版本 %1$s（构建 %2$d）</string>
 
     <string name="status_starting">正在启动…</string>

@@ -14,8 +14,8 @@ android {
         applicationId = "com.bettercast.receiver"
         minSdk = 26
         targetSdk = 34
-        versionCode = 6
-        versionName = "1.5.0"
+        versionCode = 7
+        versionName = "1.6.0"
     }
 
     // Release signing. Credentials come from keystore.properties (gitignored) or,
@@ -31,6 +31,12 @@ android {
         if (hasSigning) {
             create("release") {
                 storeFile = file(storePath!!)
+                // 中文构建的签名库由 CI 从 secret 解出，格式是 PKCS12；
+                // 文件名带 .p12/.pkcs12 时显式声明类型，否则 Gradle 按 JKS 解析。
+                val lower = storePath!!.lowercase()
+                if (lower.endsWith(".p12") || lower.endsWith(".pkcs12")) {
+                    storeType = "PKCS12"
+                }
                 storePassword = keystoreProps.getProperty("storePassword") ?: System.getenv("BC_KEYSTORE_PASSWORD")
                 keyAlias = keystoreProps.getProperty("keyAlias") ?: System.getenv("BC_KEY_ALIAS") ?: "bettercast"
                 keyPassword = keystoreProps.getProperty("keyPassword") ?: System.getenv("BC_KEY_PASSWORD")

@@ -148,4 +148,14 @@
     <string name="rotation_landscape">Landscape</string>
     <string name="rotation_portrait">Portrait</string>
     <string name="rotation_auto">Auto</string>
+
+    <!-- In-app update (checks the Chinese build's GitHub release) -->
+    <string name="update_title">Update available: v%1$s</string>
+    <string name="update_body">A newer Chinese build is ready. Download and install now?</string>
+    <string name="update_action">Update now</string>
+    <string name="update_later">Later</string>
+    <string name="update_downloading">Downloading… %1$d%%</string>
+    <string name="update_install">Install</string>
+    <string name="update_permission">Allow BetterCast to install unknown apps in system settings, then tap Install again.</string>
+    <string name="update_failed">Update failed: %1$s</string>
 </resources>

@@ -58,10 +58,13 @@ import com.bettercast.receiver.sender.SenderState
 import com.bettercast.receiver.sender.SenderViewModel
 import androidx.compose.runtime.saveable.rememberSaveable
 import com.bettercast.receiver.ui.ReceiverShell
+import com.bettercast.receiver.ui.UpdateDialog
 import com.bettercast.receiver.ui.theme.BC
 import com.bettercast.receiver.ui.theme.BetterCastReceiverTheme
 import com.bettercast.receiver.viewmodel.ReceiverState
 import com.bettercast.receiver.viewmodel.ReceiverViewModel
+import com.bettercast.receiver.update.UpdateChecker
+import com.bettercast.receiver.update.UpdateInfo
 
 enum class AppMode { RECEIVER, SENDER }
 
@@ -338,6 +341,17 @@ fun AppContent(
     val senderState by senderViewModel.state.collectAsState()
 
     // 社区汉化版：已移除启动时的打赏提示
+
+    // 启动时查一次 GitHub Release，有新版本就弹窗让用户直接更新
+    var pendingUpdate by remember { mutableStateOf<UpdateInfo?>(null) }
+    LaunchedEffect(Unit) {
+        if (pendingUpdate == null) {
+            pendingUpdate = UpdateChecker.check(BuildConfig.VERSION_NAME)
+        }
+    }
+    pendingUpdate?.let { info ->
+        UpdateDialog(info = info, onDismiss = { pendingUpdate = null })
+    }
 
     // Hide mode toggle when actively connected/casting — and always in PiP, where the
     // window is far too small for it.

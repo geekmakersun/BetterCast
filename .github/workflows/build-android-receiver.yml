@@ -37,19 +37,42 @@ jobs:
           ls "$ANDROID_HOME/platforms" || true
           yes | sdkmanager --licenses > /dev/null 2>&1 || true
 
-      - name: Build debug APK
+      # 固定签名库（PKCS12）：应用内自动更新要求新旧版本签名一致，
+      # 否则系统安装器会以「签名不同」拒绝覆盖安装。
+      - name: Decode signing keystore
+        env:
+          BC_KEYSTORE_BASE64: ${{ secrets.BC_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$BC_KEYSTORE_BASE64" ]; then
+            echo "::warning::BC_KEYSTORE_BASE64 未配置，将退回 debug 签名（无法覆盖安装）"
+            exit 0
+          fi
+          echo "$BC_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/bettercast-release.p12"
+          echo "BC_KEYSTORE=$RUNNER_TEMP/bettercast-release.p12" >> "$GITHUB_ENV"
+          echo "已写入签名库：$(stat -c%s "$RUNNER_TEMP/bettercast-release.p12") bytes"
+
+      - name: Build APK
         working-directory: Sources/BetterCastReceiverAndroid
+        env:
+          BC_KEYSTORE_PASSWORD: ${{ secrets.BC_KEYSTORE_PASSWORD }}
+          BC_KEY_PASSWORD: ${{ secrets.BC_KEY_PASSWORD }}
+          BC_KEY_ALIAS: ${{ secrets.BC_KEY_ALIAS }}
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon --stacktrace
+          if [ -n "$BC_KEYSTORE" ]; then
+            ./gradlew assembleRelease --no-daemon --stacktrace
+          else
+            ./gradlew assembleDebug --no-daemon --stacktrace
+          fi
 
       - name: Rename APK
         run: |
           version=$(grep -oP 'versionName\s*=\s*"\K[^"]+' Sources/BetterCastReceiverAndroid/app/build.gradle.kts)
           echo "version=$version" >> "$GITHUB_ENV"
           mkdir -p out
-          cp Sources/BetterCastReceiverAndroid/app/build/outputs/apk/debug/app-debug.apk \
-             "out/BetterCast-Receiver-Android-zh-Hans-$version.apk"
+          apk=Sources/BetterCastReceiverAndroid/app/build/outputs/apk/release/app-release.apk
+          [ -f "$apk" ] || apk=Sources/BetterCastReceiverAndroid/app/build/outputs/apk/debug/app-debug.apk
+          cp "$apk" "out/BetterCast-Receiver-Android-zh-Hans-$version.apk"
           ls -lh out
 
       - name: Upload APK artifact
@@ -74,6 +97,6 @@ jobs:
 
             Android 简体中文资源随系统语言自动切换；Android 13 及以上可在
             「设置 › 应用 › BetterCast 接收端 › 语言」单独设为简体中文。
-            APK 使用调试签名，安装前需先卸载旧版本。
+            APK 使用固定签名，应用内可自动更新；首次从旧版（debug 签名）迁移需先卸载。
           prerelease: true
           files: out/*.apk

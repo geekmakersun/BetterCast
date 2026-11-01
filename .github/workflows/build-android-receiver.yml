@@ -87,13 +87,12 @@ jobs:
         if: github.event_name == 'workflow_dispatch'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: zh-hans-v${{ env.version }}
-          name: BetterCast 中文版 v${{ env.version }}
+          tag_name: zh-hans-android-v${{ env.version }}
+          name: BetterCast 中文版（Android）v${{ env.version }}
           body: |
-            BetterCast 简体中文构建（社区汉化，非官方发布）。Windows 与 Android 共用同一版本号。
+            BetterCast 简体中文构建（社区汉化，非官方发布）。Windows 与 Android 版本号各自独立，互不影响。
 
-            - `BetterCast-Windows-x64-zh-Hans-*.zip` / `BetterCast-Setup-*.exe`：Windows 绿色版与安装版
-            - `BetterCast-Receiver-Android-zh-Hans-*.apk`：Android 接收端（默认横屏，已移除打赏提示）
+            - `BetterCast-Receiver-Android-zh-Hans-*.apk`：Android 接收端，默认横屏，已移除打赏提示
 
             Android 简体中文资源随系统语言自动切换；Android 13 及以上可在
             「设置 › 应用 › BetterCast 接收端 › 语言」单独设为简体中文。

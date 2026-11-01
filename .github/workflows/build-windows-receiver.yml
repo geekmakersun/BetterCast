@@ -286,7 +286,16 @@ jobs:
             }
           }
           if (-not $makensis) {
-            Write-Error "makensis.exe not found — windows-2022 runner image changed?"
+            # windows-latest 镜像不再预装 NSIS，按需从 Chocolatey 安装
+            choco install nsis -y --no-progress
+            $candidate = "C:\Program Files (x86)\NSIS\makensis.exe"
+            if (Test-Path $candidate) {
+              "C:\Program Files (x86)\NSIS" >> $env:GITHUB_PATH
+              $makensis = $candidate
+            }
+          }
+          if (-not $makensis) {
+            Write-Error "makensis.exe not found even after installing NSIS"
             exit 1
           }
           Write-Host "Using NSIS: $makensis"

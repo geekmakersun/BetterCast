@@ -63,6 +63,10 @@ static const QStringList kSettingsFiles = {
     "options.xml",
 };
 
+#ifdef _WIN32
+static bool applyDisplayMode(const QString& devName, int width, int height, int hz);
+#endif
+
 // VDD named pipe. MikeTheTech 的 IDD 驱动实际用的是 MTTVirtualDisplayPipe，
 // 旧常量 VDDPipe 只在少数老版本里出现，这里两个都试。
 static const char* kVddPipeNames[] = {

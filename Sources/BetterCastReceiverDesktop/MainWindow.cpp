@@ -220,6 +220,10 @@ MainWindow::MainWindow(QWidget* parent)
     marker.open(QIODevice::WriteOnly);
     marker.close();
 
+    // 启动后静默查一次更新：只有真的发现新版才弹窗，网络不通不打扰
+    m_updater = new Updater(this);
+    QTimer::singleShot(3000, this, [this] { m_updater->checkForUpdates(false); });
+
     // Create core components
     m_decoder = new VideoDecoder(this);
     m_renderer = new VideoRenderer();
@@ -928,6 +932,16 @@ void MainWindow::setupSettingsPage() {
     descLabel->setStyleSheet("font-size: 12px; color: #888;");
     descLabel->setWordWrap(true);
     aboutLayout->addWidget(descLabel);
+
+    auto* checkUpdateBtn = new QPushButton("检查更新");
+    checkUpdateBtn->setCursor(Qt::PointingHandCursor);
+    checkUpdateBtn->setStyleSheet(
+        "QPushButton { background: #2a2a2e; color: #e0e0e0; border: 1px solid #3a3a40;"
+        " border-radius: 6px; padding: 6px 14px; font-size: 12px; }"
+        "QPushButton:hover { background: #34343a; }");
+    aboutLayout->addWidget(checkUpdateBtn, 0, Qt::AlignLeft);
+    connect(checkUpdateBtn, &QPushButton::clicked, this,
+            [this] { m_updater->checkForUpdates(true); });
 
     layout->addWidget(aboutCard);
 

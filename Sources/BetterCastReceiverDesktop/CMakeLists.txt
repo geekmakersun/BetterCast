@@ -118,6 +118,7 @@ set(SOURCES
     AudioDecoder.cpp
     AudioPlayer.cpp
     AdbHelper.cpp
+    Updater.cpp
 )
 
 set(HEADERS
@@ -132,6 +133,7 @@ set(HEADERS
     AudioDecoder.h
     AudioPlayer.h
     AdbHelper.h
+    Updater.h
 )
 
 # Sender mode sources

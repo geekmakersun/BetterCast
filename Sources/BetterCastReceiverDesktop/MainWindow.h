@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QMainWindow>
+#include "Updater.h"
 #include <QLabel>
 #include <QLineEdit>
 #include <QPushButton>
@@ -147,6 +148,7 @@ private:
     void selectSidebarItem(int pageIndex);
 
     // Core components
+    Updater* m_updater = nullptr;
     VideoDecoder* m_decoder = nullptr;
     VideoRenderer* m_renderer = nullptr;
     NetworkListener* m_network = nullptr;

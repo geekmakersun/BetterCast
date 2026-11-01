@@ -2,7 +2,6 @@ package com.bettercast.receiver.ui
 
 import android.content.Intent
 import android.net.Uri
-import com.bettercast.receiver.BuildConfig
 import com.bettercast.receiver.update.UpdateChecker
 import com.bettercast.receiver.update.UpdateInfo
 import kotlinx.coroutines.launch
